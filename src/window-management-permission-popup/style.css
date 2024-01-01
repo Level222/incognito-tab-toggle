@@ -1,0 +1,41 @@
+body {
+  margin: 10px;
+  font: 16px "Arial", sans-serif;
+}
+
+h1 {
+  font-size: 1.5em;
+}
+
+#open-site-details {
+  box-sizing: border-box;
+  padding: 0.2em 0.5em;
+  border: 1.5px solid #333;
+  border-radius: 5px;
+  appearance: none;
+  display: inline-block;
+  background: #777;
+  font-family: inherit;
+  font-size: 14px;
+  color: #fff;
+  cursor: pointer;
+  transition: 0.2s background, color;
+}
+
+#open-site-details:hover {
+  background: #eee;
+  color: #333;
+}
+
+code {
+  display: inline-block;
+  font-size: 0.9em;
+  background-color: #ddd;
+  border-radius: 0.2em;
+  padding: 0.2em 0.5em;
+  word-break: break-all;
+}
+
+li {
+  margin: 0.5em 0;
+}
