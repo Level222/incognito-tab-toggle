@@ -15,10 +15,8 @@ const cloneTab = async (
     ...overrides
   });
 
-  const newTabId = newTab.id;
-
-  if (newTabId) {
-    await chrome.tabs.update(newTabId, {
+  if (isWithId(newTab)) {
+    await chrome.tabs.update(newTab.id, {
       autoDiscardable,
       ...(mutedInfo ? { muted: mutedInfo.muted } : {})
     });
@@ -45,6 +43,15 @@ const mapGroupBy = <T, U>(
     return groupsMap;
   }, new Map<U, T[]>());
 
+const asyncFlatMap = async <T, U, This = undefined>(
+  array: T[],
+  callback: (this: This, value: T, index: number, array: T[]) => Promise<U | ReadonlyArray<U>>,
+  thisArg?: This
+) => {
+  const mappedArray = await Promise.all(array.map(callback, thisArg));
+  return mappedArray.flat();
+};
+
 type TypeGuardIncludes = <T>(
   this: T[],
   searchElement: unknown
@@ -54,15 +61,25 @@ const moveClonedTabs = async (
   tabs: WithId<chrome.tabs.Tab>[],
   windowId: number
 ) => {
-  const createdTabs = await Promise.all(
-    tabs.map(async (oldTab) => {
-      const newTab = await cloneTab(oldTab, { windowId });
+  const createdTabs = await asyncFlatMap(tabs, async (oldTab) => {
+    const newTab = await cloneTab(oldTab, { windowId });
 
-      await chrome.tabs.remove(oldTab.id);
+    chrome.windows.update(windowId, { focused: true });
 
-      return { oldTab, newTab };
-    })
-  );
+    if (!isWithId(newTab)) {
+      return [];
+    }
+
+    if (newTab.windowId !== windowId) {
+      if (newTab.id !== oldTab.id) {
+        await chrome.tabs.remove(newTab.id);
+      }
+
+      return [];
+    }
+
+    return [{ oldTab, newTab }];
+  });
 
   const groups = mapGroupBy(createdTabs, ({ oldTab }) => oldTab.groupId);
 
@@ -78,14 +95,16 @@ const moveClonedTabs = async (
 
       const newTabGroupId = await chrome.tabs.group({
         createProperties: { windowId },
-        tabIds: tabs.flatMap(({ newTab }) =>
-          isWithId(newTab) ? [newTab.id] : []
-        )
+        tabIds: tabs.map(({ newTab }) => newTab.id)
       });
 
       await chrome.tabGroups.update(newTabGroupId, { collapsed, color, title });
     })
   );
+
+  await Promise.all(createdTabs.map(async ({ oldTab }) => {
+    await chrome.tabs.remove(oldTab.id);
+  }));
 };
 
 const toggleTabIncognito = async (): Promise<void> => {
